@@ -50,7 +50,7 @@ def fetch_dhhs_notices():
             if title and source_url:
                 notices.append({
                     'title': title,
-                    'state': 'NH',
+                    'state': 'nh',
                     'county': '',
                     'published_date': date,
                     'end_date': end_date,
