@@ -44,7 +44,7 @@ def fetch_dhhs_notices():
             alias = path_data.get('alias', '')
             source_url = DHHS_BASE_URL + alias if alias else ''
 
-            end_date_raw = fields.get('field_closed_date', [None])[0]
+            end_date_raw = (fields.get('field_closed_date') or [None])[0]
             end_date = end_date_raw[:10] if end_date_raw else None
 
             if title and source_url:
