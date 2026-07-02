@@ -1,4 +1,5 @@
 import requests
+from curl_cffi import requests as browser_requests
 import json
 import os
 import sys
@@ -22,7 +23,7 @@ def fetch_dhhs_notices():
     }
 
     while True:
-        response = requests.get(DHHS_API_URL, headers=headers, params={
+        response = browser_requests.get(DHHS_API_URL, impersonate="chrome125", headers=headers, params={
             'q': f'@field_press_release_category|=|{DHHS_CATEGORY_ID}',
             'sort': 'field_date|desc|ALLOW_NULLS',
             'view': 'list',
