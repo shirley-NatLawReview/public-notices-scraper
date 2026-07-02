@@ -56,7 +56,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': 'Public Meetings & Elections',
+                    'category': 'public_meetings_elections',
                 })
 
         if page >= last_page:
