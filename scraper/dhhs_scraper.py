@@ -94,7 +94,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': categorize_notice(title),
+                    'category': 'government_programs',
                 })
 
         if page >= last_page:
