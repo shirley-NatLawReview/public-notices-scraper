@@ -91,7 +91,6 @@ def create_notice(notice):
                 'field_category': notice['category'],
                 'field_source_name': notice['source_name'],
                 'field_source_url': {'uri': notice['source_url'], 'title': ''},
-                'field_is_active_notice': True,
             }
         }
     }
