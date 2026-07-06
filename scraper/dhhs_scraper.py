@@ -13,7 +13,7 @@ DRUPAL_USER = os.environ['DRUPAL_USER']
 DRUPAL_PASS = os.environ['DRUPAL_PASS']
 
 
-def categorize_notice(title):
+def categorize_notice(title, source=None):
     t = title.lower()
 
     # Rules checked in order — more specific phrases before single words
@@ -46,7 +46,6 @@ def categorize_notice(title):
             'federal grant', 'community services', 'public comment',
             'public hearing', 'public notice', 'wic', 'medicaid', 'medicare',
             'mental health', 'substance use', 'grant application', 'reapproval', 're-approval',
-            'program', 'services', 'grant', 'health', 'patient', 'behavioral',
         ]),
     ]
 
@@ -55,6 +54,8 @@ def categorize_notice(title):
             if kw in t:
                 return key
 
+    if source == 'dhhs':
+        return 'government_programs'
     return 'miscellaneous'
 
 
@@ -101,7 +102,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': categorize_notice(title),
+                    'category': categorize_notice(title, source='dhhs'),
                 })
 
         if page >= last_page:
