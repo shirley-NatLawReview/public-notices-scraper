@@ -45,8 +45,8 @@ def categorize_notice(title):
             'block grant', 'state plan', 'continuum of care', 'waiver',
             'federal grant', 'community services', 'public comment',
             'public hearing', 'public notice', 'wic', 'medicaid', 'medicare',
-            'mental health', 'substance use', 'grant application', 'reapproval',
-            'program', 'services', 'grant',
+            'mental health', 'substance use', 'grant application', 'reapproval', 're-approval',
+            'program', 'services', 'grant', 'health', 'patient', 'behavioral',
         ]),
     ]
 
