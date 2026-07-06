@@ -13,6 +13,44 @@ DRUPAL_USER = os.environ['DRUPAL_USER']
 DRUPAL_PASS = os.environ['DRUPAL_PASS']
 
 
+def categorize_notice(title):
+    t = title.lower()
+
+    # Rules checked in order — more specific phrases before single words
+    rules = [
+        ('foreclosure', [
+            'real estate', 'foreclosure', 'foreclosed', 'foreclose',
+            'judicial sale', 'notice of sale', 'forfeiture', 'forfeit', 'judgment',
+        ]),
+        ('Estates_Claims', [
+            'estate claim', 'estate tax', 'estates claim', 'estates claims',
+            'creditor', 'creditors', 'decedent', 'decedents', 'estate', 'estates',
+        ]),
+        ('assessments', ['assessment']),
+        ('school_board', [
+            'school board', 'school district', 'state board of education',
+            'teacher salaries', 'teacher salary',
+            'school', 'education', 'teacher', 'salaries', 'salary',
+        ]),
+        ('truth_in_taxation', [
+            'truth in taxation', 'taxing district', 'tax district',
+            'taxing', 'taxation', 'tax',
+        ]),
+        ('public_meetings_elections', [
+            'open meetings act', 'open meetings', 'open meeting',
+            'scheduled meeting', 'regular meeting', 'meeting times',
+            'elections', 'meetings', 'meeting',
+        ]),
+    ]
+
+    for key, keywords in rules:
+        for kw in keywords:
+            if kw in t:
+                return key
+
+    return 'public_meetings_elections'
+
+
 def fetch_dhhs_notices():
     notices = []
     page = 1
@@ -56,7 +94,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': 'public_meetings_elections',
+                    'category': categorize_notice(title),
                 })
 
         if page >= last_page:
