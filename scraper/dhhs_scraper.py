@@ -41,6 +41,13 @@ def categorize_notice(title):
             'scheduled meeting', 'regular meeting', 'meeting times',
             'elections', 'meetings', 'meeting',
         ]),
+        ('government_programs', [
+            'block grant', 'state plan', 'continuum of care', 'waiver',
+            'federal grant', 'community services', 'public comment',
+            'public hearing', 'public notice', 'wic', 'medicaid', 'medicare',
+            'mental health', 'substance use', 'grant application', 'reapproval',
+            'program', 'services', 'grant',
+        ]),
     ]
 
     for key, keywords in rules:
@@ -48,7 +55,7 @@ def categorize_notice(title):
             if kw in t:
                 return key
 
-    return 'public_meetings_elections'
+    return 'miscellaneous'
 
 
 def fetch_dhhs_notices():
@@ -94,7 +101,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': 'government_programs',
+                    'category': categorize_notice(title),
                 })
 
         if page >= last_page:
