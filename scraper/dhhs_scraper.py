@@ -7,6 +7,7 @@ import sys
 DHHS_API_URL = 'https://www.dhhs.nh.gov/content/api/news'
 DHHS_BASE_URL = 'https://www.dhhs.nh.gov'
 DHHS_CATEGORY_ID = '11426'
+SOURCE = 'dhhs'
 
 DRUPAL_URL = os.environ['DRUPAL_URL'].rstrip('/')
 DRUPAL_USER = os.environ['DRUPAL_USER']
@@ -102,7 +103,7 @@ def fetch_dhhs_notices():
                     'end_date': end_date,
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
-                    'category': categorize_notice(title, source='dhhs'),
+                    'category': categorize_notice(title, source=SOURCE),
                 })
 
         if page >= last_page:
