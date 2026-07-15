@@ -90,7 +90,7 @@ Notice text:
 
 Return only the JSON object, nothing else."""
 
-    response = gemini_client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
+    response = gemini_client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
     text = response.text.strip()
     # Strip markdown code fences if Gemini wraps the JSON
     text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.MULTILINE)
