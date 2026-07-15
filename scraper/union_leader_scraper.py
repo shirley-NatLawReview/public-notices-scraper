@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
 from google import genai
@@ -90,7 +91,16 @@ Notice text:
 
 Return only the JSON object, nothing else."""
 
-    response = gemini_client.models.generate_content(model='gemini-3.5-flash', contents=prompt)
+    for attempt in range(3):
+        try:
+            response = gemini_client.models.generate_content(model='gemini-3.5-flash', contents=prompt)
+            break
+        except Exception as e:
+            if '503' in str(e) and attempt < 2:
+                print(f'Gemini 503, retrying in 10s... (attempt {attempt + 1})')
+                time.sleep(10)
+            else:
+                raise
     text = response.text.strip()
     # Strip markdown code fences if Gemini wraps the JSON
     text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.MULTILINE)
