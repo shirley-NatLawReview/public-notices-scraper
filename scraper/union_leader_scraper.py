@@ -5,7 +5,7 @@ import re
 import sys
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
-import google.generativeai as genai
+from google import genai
 
 SOURCE = 'union_leader'
 BASE_URL = 'https://www.unionleader.com'
@@ -21,8 +21,7 @@ DRUPAL_URL = os.environ['DRUPAL_URL'].rstrip('/')
 DRUPAL_USER = os.environ['DRUPAL_USER']
 DRUPAL_PASS = os.environ['DRUPAL_PASS']
 
-genai.configure(api_key=os.environ['GEMINI_API_KEY'])
-gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+gemini_client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -40,7 +39,7 @@ def fetch_listing_urls():
         soup = BeautifulSoup(response.text, 'html.parser')
         for link in soup.find_all('a', class_='tnt-asset-link'):
             href = link.get('href', '')
-            if href:
+            if href and '/classifieds/legals/' in href:
                 full_url = BASE_URL + href if href.startswith('/') else href
                 if full_url not in urls:
                     urls.append(full_url)
@@ -91,7 +90,7 @@ Notice text:
 
 Return only the JSON object, nothing else."""
 
-    response = gemini_model.generate_content(prompt)
+    response = gemini_client.models.generate_content(model='gemini-2.0-flash', contents=prompt)
     text = response.text.strip()
     # Strip markdown code fences if Gemini wraps the JSON
     text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.MULTILINE)
