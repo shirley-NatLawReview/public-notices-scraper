@@ -23,7 +23,7 @@ DRUPAL_PASS = os.environ['DRUPAL_PASS']
 
 ai_client = OpenAI(
     base_url='https://models.inference.ai.azure.com',
-    api_key=os.environ['GITHUB_MODELS_TOKEN'],
+    api_key=os.environ['GH_MODELS_TOKEN'],
 )
 
 HEADERS = {

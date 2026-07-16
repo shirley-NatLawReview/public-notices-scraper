@@ -25,5 +25,5 @@ jobs:
           DRUPAL_URL: ${{ secrets.DRUPAL_URL }}
           DRUPAL_USER: ${{ secrets.DRUPAL_USER }}
           DRUPAL_PASS: ${{ secrets.DRUPAL_PASS }}
-          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
+          GH_MODELS_TOKEN: ${{ secrets.GH_MODELS_TOKEN }}
         run: python scraper/union_leader_scraper.py
