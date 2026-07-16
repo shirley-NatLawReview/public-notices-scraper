@@ -3,10 +3,8 @@ import json
 import os
 import re
 import sys
-import time
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
-from google import genai
 
 SOURCE = 'union_leader'
 BASE_URL = 'https://www.unionleader.com'
@@ -21,8 +19,6 @@ SEARCH_PARAMS = [
 DRUPAL_URL = os.environ['DRUPAL_URL'].rstrip('/')
 DRUPAL_USER = os.environ['DRUPAL_USER']
 DRUPAL_PASS = os.environ['DRUPAL_PASS']
-
-gemini_client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -57,6 +53,10 @@ def fetch_listing(url):
     match = re.search(r'"published_time"\s*:\s*"([^"]+)"', html)
     published_time = match.group(1) if match else None
 
+    # Extract the listing title from the page
+    title_tag = soup.select_one('h1.asset-headline, h1.headline, h1')
+    title = title_tag.get_text(strip=True) if title_tag else None
+
     # Extract body text using BLOX CMS selectors
     body = None
     for selector in ['div.asset-body', 'div.asset-description', 'div.classified-body']:
@@ -65,7 +65,7 @@ def fetch_listing(url):
             body = el.get_text(separator='\n', strip=True)
             break
 
-    return published_time, body
+    return published_time, title, body
 
 
 def is_within_24_hours(published_time_str):
@@ -76,36 +76,6 @@ def is_within_24_hours(published_time_str):
         return (datetime.now(timezone.utc) - published) <= timedelta(hours=24)
     except ValueError:
         return False
-
-
-def parse_with_gemini(body_text):
-    prompt = f"""Extract the following fields from this NH foreclosure notice. Return ONLY a JSON object with exactly these keys:
-- mortgagor: the borrower/property owner name(s) being foreclosed on
-- mortgagee: the current lender/bank/holder name
-- property_address: the full property address (street, city, state)
-- sale_date: the auction/sale date in YYYY-MM-DD format, or null if not found
-- sale_location: where the sale physically takes place, or null if not stated separately from the property address
-
-Notice text:
-{body_text}
-
-Return only the JSON object, nothing else."""
-
-    for attempt in range(3):
-        try:
-            response = gemini_client.models.generate_content(model='gemini-3.5-flash', contents=prompt)
-            break
-        except Exception as e:
-            if '503' in str(e) and attempt < 2:
-                print(f'Gemini 503, retrying in 10s... (attempt {attempt + 1})')
-                time.sleep(10)
-            else:
-                raise
-    text = response.text.strip()
-    # Strip markdown code fences if Gemini wraps the JSON
-    text = re.sub(r'^```(?:json)?\s*', '', text, flags=re.MULTILINE)
-    text = re.sub(r'\s*```\s*$', '', text, flags=re.MULTILINE)
-    return json.loads(text.strip())
 
 
 def notice_exists(source_url):
@@ -120,26 +90,18 @@ def notice_exists(source_url):
     return False
 
 
-def create_notice(url, published_time, body, fields):
-    mortgagor = fields.get('mortgagor') or 'Unknown'
-    title = f"Foreclosure Notice - {mortgagor}"
+def create_notice(url, published_time, title, body):
     pub_date = published_time[:10] if published_time else None
+    node_title = title or 'Foreclosure Notice'
 
     attributes = {
-        'title': title,
-        'field_mortgagor': fields.get('mortgagor') or '',
-        'field_mortgagee': fields.get('mortgagee') or '',
-        'field_address': fields.get('property_address') or '',
-        'field_sale_location': fields.get('sale_location') or '',
+        'title': node_title,
         'field_body': body or '',
         'field_source_url': {'uri': url, 'title': ''},
     }
 
     if pub_date:
         attributes['field_date_published'] = pub_date
-
-    if fields.get('sale_date'):
-        attributes['field_sale_date'] = fields['sale_date']
 
     payload = {
         'data': {
@@ -173,7 +135,7 @@ def main():
             continue
 
         try:
-            published_time, body = fetch_listing(url)
+            published_time, title, body = fetch_listing(url)
         except Exception as e:
             print(f'Error fetching {url}: {e}')
             errors += 1
@@ -189,16 +151,9 @@ def main():
             errors += 1
             continue
 
-        try:
-            fields = parse_with_gemini(body)
-        except Exception as e:
-            print(f'Error parsing with Gemini for {url}: {e}')
-            errors += 1
-            continue
-
-        response = create_notice(url, published_time, body, fields)
+        response = create_notice(url, published_time, title, body)
         if response.status_code in (200, 201):
-            print(f'Created: {fields.get("mortgagor", "Unknown")} - {fields.get("property_address", "")}')
+            print(f'Created: {title}')
             created += 1
         else:
             print(f'Error creating {url}: {response.status_code} - {response.text[:300]}')
