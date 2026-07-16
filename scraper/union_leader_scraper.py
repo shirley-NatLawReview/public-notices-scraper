@@ -71,10 +71,9 @@ def fetch_listing(url):
             body = el.get_text(separator='\n', strip=True)
             break
 
-    # Strip social sharing boilerplate that appears before the actual notice text
-    # Pattern: "Save Share Facebook ... Updated 11 hrs ago" precedes the real content
+    # Strip social sharing boilerplate (Save, Share, Facebook... "[N] hrs/days ago")
     if body:
-        match = re.search(r'\bUpdated\b.*?ago', body, flags=re.IGNORECASE | re.DOTALL)
+        match = re.search(r'\d+\s+(?:hr|hrs|hour|hours|day|days|min|mins|minute|minutes)\s+ago', body, flags=re.IGNORECASE)
         if match:
             body = body[match.end():].strip()
 
@@ -94,10 +93,13 @@ def is_within_24_hours(published_time_str):
 def parse_with_ai(body_text):
     prompt = f"""Extract the following fields from this NH foreclosure notice. Return ONLY a JSON object with exactly these keys:
 - mortgagor: the borrower/property owner name(s) being foreclosed on
-- mortgagee: the current lender/bank/holder name
-- property_address: the full property address (street, city, state)
-- sale_date: the auction/sale date in YYYY-MM-DD format, or null if not found
-- sale_location: where the sale physically takes place, or null if not stated separately from the property address
+- mortgagee: the current holder/lender name (use the assignee if the mortgage was assigned, not the original lender)
+- property_address: the full property address being foreclosed (street, city, state)
+- sale_datetime: the auction/sale date and time in YYYY-MM-DDTHH:MM:SS format (24-hour), or null if not found
+- sale_location: the full address where the sale takes place — if the sale is at the property itself, repeat the property_address here; return null only if no location is mentioned at all
+- foreclosure_attorney: the law firm or attorney conducting the sale on behalf of the mortgagee, or null if not mentioned
+- attorney_address: the address of the foreclosure attorney or agent, or null if not mentioned
+- attorney_phone: the phone number of the foreclosure attorney or agent, or null if not mentioned
 
 Notice text:
 {body_text}"""
@@ -139,14 +141,17 @@ def create_notice(url, published_time, title, body, fields):
         'field_mortgagee': fields.get('mortgagee') or '',
         'field_address': fields.get('property_address') or '',
         'field_sale_location': fields.get('sale_location') or '',
+        'field_foreclosure_attorney': fields.get('foreclosure_attorney') or '',
+        'field_attorney_address': fields.get('attorney_address') or '',
+        'field_attorney_phone': fields.get('attorney_phone') or '',
         'field_source_url': {'uri': url, 'title': ''},
     }
 
     if pub_date:
         attributes['field_date_published'] = pub_date
 
-    if fields.get('sale_date'):
-        attributes['field_sale_date'] = fields['sale_date']
+    if fields.get('sale_datetime'):
+        attributes['field_sale_datetime'] = fields['sale_datetime']
 
     payload = {
         'data': {
