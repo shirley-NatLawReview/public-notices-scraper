@@ -4,6 +4,7 @@ import os
 import re
 import sys
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from bs4 import BeautifulSoup
 from openai import OpenAI
 
@@ -151,7 +152,12 @@ def create_notice(url, published_time, title, body, fields):
         attributes['field_date_published'] = pub_date
 
     if fields.get('sale_datetime'):
-        attributes['field_sale_datetime'] = fields['sale_datetime']
+        try:
+            eastern = ZoneInfo('America/New_York')
+            dt = datetime.fromisoformat(fields['sale_datetime']).replace(tzinfo=eastern)
+            attributes['field_sale_datetime'] = dt.isoformat()
+        except Exception:
+            pass
 
     payload = {
         'data': {
