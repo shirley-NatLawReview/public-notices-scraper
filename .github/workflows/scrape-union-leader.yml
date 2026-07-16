@@ -18,11 +18,12 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 openai
 
       - name: Run Union Leader scraper
         env:
           DRUPAL_URL: ${{ secrets.DRUPAL_URL }}
           DRUPAL_USER: ${{ secrets.DRUPAL_USER }}
           DRUPAL_PASS: ${{ secrets.DRUPAL_PASS }}
+          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
         run: python scraper/union_leader_scraper.py

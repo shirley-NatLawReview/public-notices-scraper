@@ -5,6 +5,7 @@ import re
 import sys
 from datetime import datetime, timezone, timedelta
 from bs4 import BeautifulSoup
+from openai import OpenAI
 
 SOURCE = 'union_leader'
 BASE_URL = 'https://www.unionleader.com'
@@ -19,6 +20,11 @@ SEARCH_PARAMS = [
 DRUPAL_URL = os.environ['DRUPAL_URL'].rstrip('/')
 DRUPAL_USER = os.environ['DRUPAL_USER']
 DRUPAL_PASS = os.environ['DRUPAL_PASS']
+
+ai_client = OpenAI(
+    base_url='https://models.inference.ai.azure.com',
+    api_key=os.environ['GITHUB_MODELS_TOKEN'],
+)
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -78,6 +84,29 @@ def is_within_24_hours(published_time_str):
         return False
 
 
+def parse_with_ai(body_text):
+    prompt = f"""Extract the following fields from this NH foreclosure notice. Return ONLY a JSON object with exactly these keys:
+- mortgagor: the borrower/property owner name(s) being foreclosed on
+- mortgagee: the current lender/bank/holder name
+- property_address: the full property address (street, city, state)
+- sale_date: the auction/sale date in YYYY-MM-DD format, or null if not found
+- sale_location: where the sale physically takes place, or null if not stated separately from the property address
+
+Notice text:
+{body_text}"""
+
+    response = ai_client.chat.completions.create(
+        model='gpt-4o-mini',
+        messages=[
+            {'role': 'system', 'content': 'You extract structured data from legal foreclosure notices. Return only valid JSON, nothing else.'},
+            {'role': 'user', 'content': prompt},
+        ],
+        response_format={'type': 'json_object'},
+        max_tokens=500,
+    )
+    return json.loads(response.choices[0].message.content)
+
+
 def notice_exists(source_url):
     response = requests.get(
         f'{DRUPAL_URL}/jsonapi/node/foreclosure',
@@ -90,18 +119,25 @@ def notice_exists(source_url):
     return False
 
 
-def create_notice(url, published_time, title, body):
+def create_notice(url, published_time, title, body, fields):
     pub_date = published_time[:10] if published_time else None
-    node_title = title or 'Foreclosure Notice'
+    node_title = title or f"Foreclosure Notice - {fields.get('mortgagor') or 'Unknown'}"
 
     attributes = {
         'title': node_title,
         'field_body': body or '',
+        'field_mortgagor': fields.get('mortgagor') or '',
+        'field_mortgagee': fields.get('mortgagee') or '',
+        'field_address': fields.get('property_address') or '',
+        'field_sale_location': fields.get('sale_location') or '',
         'field_source_url': {'uri': url, 'title': ''},
     }
 
     if pub_date:
         attributes['field_date_published'] = pub_date
+
+    if fields.get('sale_date'):
+        attributes['field_sale_date'] = fields['sale_date']
 
     payload = {
         'data': {
@@ -141,6 +177,7 @@ def main():
             errors += 1
             continue
 
+        # Filter to last 24 hours BEFORE calling AI to avoid wasting tokens
         if not is_within_24_hours(published_time):
             print(f'Skip (older than 24h, published {published_time}): {url}')
             skipped_old += 1
@@ -151,7 +188,16 @@ def main():
             errors += 1
             continue
 
-        response = create_notice(url, published_time, title, body)
+        # Only notices from today reach this point
+        try:
+            fields = parse_with_ai(body)
+            print(f'Parsed: mortgagor={fields.get("mortgagor")}, address={fields.get("property_address")}')
+        except Exception as e:
+            print(f'Error parsing with AI for {url}: {e}')
+            errors += 1
+            continue
+
+        response = create_notice(url, published_time, title, body, fields)
         if response.status_code in (200, 201):
             print(f'Created: {title}')
             created += 1
