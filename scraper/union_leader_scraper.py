@@ -71,6 +71,13 @@ def fetch_listing(url):
             body = el.get_text(separator='\n', strip=True)
             break
 
+    # Strip social sharing boilerplate that appears before the actual notice text
+    # Pattern: "Save Share Facebook ... Updated 11 hrs ago" precedes the real content
+    if body:
+        match = re.search(r'\bUpdated\b.*?ago', body, flags=re.IGNORECASE | re.DOTALL)
+        if match:
+            body = body[match.end():].strip()
+
     return published_time, title, body
 
 
@@ -121,7 +128,9 @@ def notice_exists(source_url):
 
 def create_notice(url, published_time, title, body, fields):
     pub_date = published_time[:10] if published_time else None
-    node_title = title or f"Foreclosure Notice - {fields.get('mortgagor') or 'Unknown'}"
+    base_title = title or 'Foreclosure Notice'
+    address = fields.get('property_address') or ''
+    node_title = f"{base_title} - {address}" if address else base_title
 
     attributes = {
         'title': node_title,
