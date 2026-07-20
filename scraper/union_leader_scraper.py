@@ -119,8 +119,15 @@ Notice text:
 
 
 def format_notice_paragraphs(raw_body, fields):
-    # Split at known NH foreclosure notice section boundaries
-    segments = re.split(r'(?=NOTICE PURSUANT TO\b)|(?=TERMS OF SALE\b)|(?<=will sell at:)', raw_body.strip())
+    # Split at known NH foreclosure notice section boundaries (handles both notice types)
+    segments = re.split(
+        r'(?=NOTICE PURSUANT TO\b)'
+        r'|(?=YOU ARE HEREBY NOTIFIED\b)'
+        r'|(?i)(?=terms of sale\b)'
+        r'|(?<=will sell at:)'
+        r'|(?<=will sell on)',
+        raw_body.strip(),
+    )
     paragraphs = [p.strip() for p in segments if p.strip()]
 
     bold_values = [v for v in [
@@ -137,10 +144,10 @@ def format_notice_paragraphs(raw_body, fields):
         text = re.sub(r'[\w.+-]+@[\w.-]+\.[a-z]{2,}', lambda m: f'<strong>{m.group()}</strong>', text)
         # Bold phone numbers
         text = re.sub(r'\b(?:1-)?[2-9]\d{2}-\d{3}-\d{4}\b', lambda m: f'<strong>{m.group()}</strong>', text)
-        # Bold sale date/time (e.g. "September 16, 2026 at 11:00 AM")
+        # Bold sale date/time — handles "11:00 AM", "09:30 A.M.", "local time"
         text = re.sub(
             r'(?:January|February|March|April|May|June|July|August|September|October|November|December)'
-            r'\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M',
+            r'\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+(?:[AP]\.?M\.?)(?:\s+local time)?',
             lambda m: f'<strong>{m.group()}</strong>',
             text, flags=re.IGNORECASE,
         )
