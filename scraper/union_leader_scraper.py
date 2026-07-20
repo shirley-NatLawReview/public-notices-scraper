@@ -150,24 +150,9 @@ def format_notice_paragraphs(raw_body, fields):
 
 
 def build_html_body(fields, raw_body):
-    rows = [
-        ('Property', fields.get('property_address')),
-        ('Mortgagor', fields.get('mortgagor')),
-        ('Mortgagee', fields.get('mortgagee')),
-        ('Deposit Amount', fields.get('deposit_amount')),
-        ('Sale Date/Time', fields.get('sale_datetime')),
-        ('Sale Location', fields.get('sale_location')),
-        ('Foreclosure Attorney', fields.get('foreclosure_attorney')),
-        ('Attorney Address', fields.get('attorney_address')),
-        ('Attorney Phone', fields.get('attorney_phone')),
-    ]
-    parts = [f'<p><strong>{label}:</strong> {value}</p>' for label, value in rows if value]
-
-    if raw_body:
-        parts.append('<hr />')
-        parts.extend(format_notice_paragraphs(raw_body, fields))
-
-    return '\n'.join(parts)
+    if not raw_body:
+        return ''
+    return '\n'.join(format_notice_paragraphs(raw_body, fields))
 
 
 def notice_exists(source_url):
