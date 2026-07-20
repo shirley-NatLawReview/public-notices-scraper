@@ -98,11 +98,10 @@ def parse_with_ai(body_text):
 - property_address: the full property address being foreclosed (street, city, state)
 - sale_datetime: the auction/sale date and time in YYYY-MM-DDTHH:MM:SS format (24-hour), or null if not found
 - sale_location: the full address where the sale takes place — if the sale is at the property itself, repeat the property_address here; return null only if no location is mentioned at all
-- deposit_amount: the required deposit or minimum bid amount from the terms of sale as a plain number with no dollar sign or commas (e.g. "15000.00"), or null if not mentioned
+- deposit_amount: the required deposit amount from the TERMS OF SALE section as a plain number with no dollar sign or commas (e.g. "10000.00"). Look for "A deposit of ... ($X,XXX.XX)". Return null if not found.
 - foreclosure_attorney: the law firm or attorney conducting the sale on behalf of the mortgagee, or null if not mentioned
 - attorney_address: the address of the foreclosure attorney or agent, or null if not mentioned
 - attorney_phone: the phone number of the foreclosure attorney or agent, or null if not mentioned
-- formatted_body: the full notice text reformatted as an HTML string. Rules: (1) do NOT change, omit, or paraphrase any words; (2) split the single paragraph into logical sub-paragraphs such as the opening/recital, the sale details, the RSA 479:25 notice, and the terms of sale — wrap each in <p> tags; (3) use <strong> tags around these specific values (not their labels): the mortgagor name(s), the current mortgagee/holder name, the sale date and time, the sale location address, any contact email addresses, and any contact phone numbers.
 
 Notice text:
 {body_text}"""
@@ -114,9 +113,40 @@ Notice text:
             {'role': 'user', 'content': prompt},
         ],
         response_format={'type': 'json_object'},
-        max_tokens=2000,
+        max_tokens=500,
     )
     return json.loads(response.choices[0].message.content)
+
+
+def format_notice_paragraphs(raw_body, fields):
+    # Split at known NH foreclosure notice section boundaries
+    segments = re.split(r'(?=NOTICE PURSUANT TO\b)|(?=TERMS OF SALE\b)|(?<=will sell at:)', raw_body.strip())
+    paragraphs = [p.strip() for p in segments if p.strip()]
+
+    bold_values = [v for v in [
+        fields.get('mortgagor'),
+        fields.get('mortgagee'),
+        fields.get('sale_location'),
+    ] if v]
+
+    def apply_bold(text):
+        for val in bold_values:
+            if val in text:
+                text = text.replace(val, f'<strong>{val}</strong>', 1)
+        # Bold email addresses
+        text = re.sub(r'[\w.+-]+@[\w.-]+\.[a-z]{2,}', lambda m: f'<strong>{m.group()}</strong>', text)
+        # Bold phone numbers
+        text = re.sub(r'\b(?:1-)?[2-9]\d{2}-\d{3}-\d{4}\b', lambda m: f'<strong>{m.group()}</strong>', text)
+        # Bold sale date/time (e.g. "September 16, 2026 at 11:00 AM")
+        text = re.sub(
+            r'(?:January|February|March|April|May|June|July|August|September|October|November|December)'
+            r'\s+\d{1,2},\s+\d{4}\s+at\s+\d{1,2}:\d{2}\s+[AP]M',
+            lambda m: f'<strong>{m.group()}</strong>',
+            text, flags=re.IGNORECASE,
+        )
+        return text
+
+    return [f'<p>{apply_bold(p)}</p>' for p in paragraphs]
 
 
 def build_html_body(fields, raw_body):
@@ -133,12 +163,9 @@ def build_html_body(fields, raw_body):
     ]
     parts = [f'<p><strong>{label}:</strong> {value}</p>' for label, value in rows if value]
 
-    if fields.get('formatted_body'):
+    if raw_body:
         parts.append('<hr />')
-        parts.append(fields['formatted_body'])
-    elif raw_body:
-        parts.append('<hr />')
-        parts.append(f'<p>{raw_body}</p>')
+        parts.extend(format_notice_paragraphs(raw_body, fields))
 
     return '\n'.join(parts)
 
@@ -163,7 +190,7 @@ def create_notice(url, published_time, title, body, fields):
 
     attributes = {
         'title': node_title,
-        'field_body': {'value': build_html_body(fields, body), 'format': 'full_html'},
+        'field_body': {'value': build_html_body(fields, body), 'format': 'basic_html'},
         'field_mortgagor': fields.get('mortgagor') or '',
         'field_mortgagee': fields.get('mortgagee') or '',
         'field_address': fields.get('property_address') or '',
@@ -177,9 +204,18 @@ def create_notice(url, published_time, title, body, fields):
     if pub_date:
         attributes['field_date_published'] = pub_date
 
-    if fields.get('deposit_amount'):
+    deposit_raw = fields.get('deposit_amount')
+    if not deposit_raw:
+        # Fallback: extract from "Info Price $X,XXX" appended by the Union Leader listing page
+        m = re.search(r'Info Price \$([0-9,]+(?:\.\d{2})?)', body or '')
+        if not m:
+            # Fallback: extract from "A deposit of ... ($X,XXX.XX)" in the notice text
+            m = re.search(r'deposit of[^(]*\(\$([0-9,]+(?:\.\d{2})?)\)', body or '', re.IGNORECASE)
+        if m:
+            deposit_raw = m.group(1)
+    if deposit_raw:
         try:
-            attributes['field_deposit_amount'] = float(str(fields['deposit_amount']).replace('$', '').replace(',', ''))
+            attributes['field_deposit_amount'] = float(str(deposit_raw).replace('$', '').replace(',', ''))
         except (ValueError, TypeError):
             pass
 
