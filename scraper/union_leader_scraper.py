@@ -98,9 +98,11 @@ def parse_with_ai(body_text):
 - property_address: the full property address being foreclosed (street, city, state)
 - sale_datetime: the auction/sale date and time in YYYY-MM-DDTHH:MM:SS format (24-hour), or null if not found
 - sale_location: the full address where the sale takes place — if the sale is at the property itself, repeat the property_address here; return null only if no location is mentioned at all
+- deposit_amount: the required deposit or minimum bid amount from the terms of sale as a plain number with no dollar sign or commas (e.g. "15000.00"), or null if not mentioned
 - foreclosure_attorney: the law firm or attorney conducting the sale on behalf of the mortgagee, or null if not mentioned
 - attorney_address: the address of the foreclosure attorney or agent, or null if not mentioned
 - attorney_phone: the phone number of the foreclosure attorney or agent, or null if not mentioned
+- formatted_body: the full notice text reformatted as an HTML string. Rules: (1) do NOT change, omit, or paraphrase any words; (2) split the single paragraph into logical sub-paragraphs such as the opening/recital, the sale details, the RSA 479:25 notice, and the terms of sale — wrap each in <p> tags; (3) use <strong> tags around these specific values (not their labels): the mortgagor name(s), the current mortgagee/holder name, the sale date and time, the sale location address, any contact email addresses, and any contact phone numbers.
 
 Notice text:
 {body_text}"""
@@ -112,9 +114,33 @@ Notice text:
             {'role': 'user', 'content': prompt},
         ],
         response_format={'type': 'json_object'},
-        max_tokens=500,
+        max_tokens=2000,
     )
     return json.loads(response.choices[0].message.content)
+
+
+def build_html_body(fields, raw_body):
+    rows = [
+        ('Property', fields.get('property_address')),
+        ('Mortgagor', fields.get('mortgagor')),
+        ('Mortgagee', fields.get('mortgagee')),
+        ('Deposit Amount', fields.get('deposit_amount')),
+        ('Sale Date/Time', fields.get('sale_datetime')),
+        ('Sale Location', fields.get('sale_location')),
+        ('Foreclosure Attorney', fields.get('foreclosure_attorney')),
+        ('Attorney Address', fields.get('attorney_address')),
+        ('Attorney Phone', fields.get('attorney_phone')),
+    ]
+    parts = [f'<p><strong>{label}:</strong> {value}</p>' for label, value in rows if value]
+
+    if fields.get('formatted_body'):
+        parts.append('<hr />')
+        parts.append(fields['formatted_body'])
+    elif raw_body:
+        parts.append('<hr />')
+        parts.append(f'<p>{raw_body}</p>')
+
+    return '\n'.join(parts)
 
 
 def notice_exists(source_url):
@@ -137,7 +163,7 @@ def create_notice(url, published_time, title, body, fields):
 
     attributes = {
         'title': node_title,
-        'field_body': body or '',
+        'field_body': {'value': build_html_body(fields, body), 'format': 'full_html'},
         'field_mortgagor': fields.get('mortgagor') or '',
         'field_mortgagee': fields.get('mortgagee') or '',
         'field_address': fields.get('property_address') or '',
@@ -150,6 +176,12 @@ def create_notice(url, published_time, title, body, fields):
 
     if pub_date:
         attributes['field_date_published'] = pub_date
+
+    if fields.get('deposit_amount'):
+        try:
+            attributes['field_deposit_amount'] = float(str(fields['deposit_amount']).replace('$', '').replace(',', ''))
+        except (ValueError, TypeError):
+            pass
 
     if fields.get('sale_datetime'):
         try:
