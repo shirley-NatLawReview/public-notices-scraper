@@ -96,6 +96,8 @@ def parse_with_ai(body_text):
 - mortgagor: the borrower/property owner name(s) being foreclosed on
 - mortgagee: the current holder/lender name (use the assignee if the mortgage was assigned, not the original lender)
 - property_address: the full property address being foreclosed (street, city, state)
+- county: the county name only, no "County" suffix (e.g. "Hillsborough" not "Hillsborough County"), or null if not found
+- state: the 2-letter state abbreviation in lowercase (e.g. "nh"), or null if not found
 - sale_datetime: the auction/sale date and time in YYYY-MM-DDTHH:MM:SS format (24-hour), or null if not found
 - sale_location: the full address where the sale takes place — if the sale is at the property itself, repeat the property_address here; return null only if no location is mentioned at all
 - deposit_amount: the required deposit amount from the TERMS OF SALE section as a plain number with no dollar sign or commas (e.g. "10000.00"). Look for "A deposit of ... ($X,XXX.XX)". Return null if not found.
@@ -187,6 +189,8 @@ def create_notice(url, published_time, title, body, fields):
         'field_mortgagor': fields.get('mortgagor') or '',
         'field_mortgagee': fields.get('mortgagee') or '',
         'field_address': fields.get('property_address') or '',
+        'field_county': fields.get('county') or '',
+        'field_state': fields.get('state') or '',
         'field_sale_location': fields.get('sale_location') or '',
         'field_foreclosure_attorney': fields.get('foreclosure_attorney') or '',
         'field_attorney_address': fields.get('attorney_address') or '',
