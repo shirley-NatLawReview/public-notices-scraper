@@ -123,10 +123,11 @@ def format_notice_paragraphs(raw_body, fields):
     segments = re.split(
         r'(?=NOTICE PURSUANT TO\b)'
         r'|(?=YOU ARE HEREBY NOTIFIED\b)'
-        r'|(?i)(?=terms of sale\b)'
+        r'|(?=terms of sale\b)'
         r'|(?<=will sell at:)'
         r'|(?<=will sell on)',
         raw_body.strip(),
+        flags=re.IGNORECASE,
     )
     paragraphs = [p.strip() for p in segments if p.strip()]
 
