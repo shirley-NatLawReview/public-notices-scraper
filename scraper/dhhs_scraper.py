@@ -2,6 +2,7 @@ import requests
 from curl_cffi import requests as browser_requests
 import json
 import os
+import re
 import sys
 
 DHHS_API_URL = 'https://www.dhhs.nh.gov/content/api/news'
@@ -94,6 +95,10 @@ def fetch_dhhs_notices():
             end_date_raw = (fields.get('field_closed_date') or [None])[0]
             end_date = end_date_raw[:10] if end_date_raw else None
 
+            body_raw = (fields.get('body') or [{}])[0].get('#text') or ''
+            # Fix relative URLs so links point back to DHHS, not our site
+            body = re.sub(r'href="(/[^"]+)"', lambda m: f'href="{DHHS_BASE_URL}{m.group(1)}"', body_raw)
+
             if title and source_url:
                 notices.append({
                     'title': title,
@@ -104,6 +109,7 @@ def fetch_dhhs_notices():
                     'source_url': source_url,
                     'source_name': 'NH Dept. of Health and Human Services',
                     'category': categorize_notice(title, source=SOURCE),
+                    'body': body,
                 })
 
         if page >= last_page:
@@ -141,6 +147,12 @@ def create_notice(notice):
             }
         }
     }
+
+    if notice.get('body'):
+        payload['data']['attributes']['field_body'] = {
+            'value': notice['body'],
+            'format': 'basic_html',
+        }
 
     if notice.get('end_date'):
         payload['data']['attributes']['field_end_date'] = notice['end_date']
