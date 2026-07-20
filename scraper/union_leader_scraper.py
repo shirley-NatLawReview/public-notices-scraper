@@ -100,7 +100,7 @@ def parse_with_ai(body_text):
 - sale_location: the full address where the sale takes place — if the sale is at the property itself, repeat the property_address here; return null only if no location is mentioned at all
 - deposit_amount: the required deposit amount from the TERMS OF SALE section as a plain number with no dollar sign or commas (e.g. "10000.00"). Look for "A deposit of ... ($X,XXX.XX)". Return null if not found.
 - foreclosure_attorney: the law firm or attorney conducting the sale on behalf of the mortgagee, or null if not mentioned
-- attorney_address: the address of the foreclosure attorney or agent, or null if not mentioned
+- attorney_address: the full contact block for the foreclosure attorney including their name, law firm name, and mailing address (e.g. "Autumn Sarzana Harmon Law Offices, P.C. PO Box 610389 Newton Highlands, MA 02461"), or null if not mentioned
 - attorney_phone: the phone number of the foreclosure attorney or agent, or null if not mentioned
 
 Notice text:
