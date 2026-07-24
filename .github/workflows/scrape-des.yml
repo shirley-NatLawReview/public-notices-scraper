@@ -1,0 +1,29 @@
+name: Scrape DES Public Comment Opportunities
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests curl-cffi beautifulsoup4 openai
+
+      - name: Run DES scraper
+        env:
+          DRUPAL_URL: ${{ secrets.DRUPAL_URL }}
+          DRUPAL_USER: ${{ secrets.DRUPAL_USER }}
+          DRUPAL_PASS: ${{ secrets.DRUPAL_PASS }}
+          GH_MODELS_TOKEN: ${{ secrets.GH_MODELS_TOKEN }}
+        run: python scraper/des_scraper.py
